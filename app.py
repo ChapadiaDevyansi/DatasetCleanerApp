@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 
 
+
 st.set_page_config(
     page_title="Dataset Cleaner & Business Insights",
     page_icon="📊",
@@ -9,122 +10,274 @@ st.set_page_config(
 )
 
 st.title("📊 Dataset Cleaner & Business Insights")
+st.write("Upload a CSV file to clean, analyze data.")
 
-st.write("Upload your CSV file")
 
-
-uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"])
+uploaded_file = st.file_uploader(
+    "📂 Upload CSV File",
+    type=["csv"]
+)
 
 if uploaded_file is not None:
 
+    
     df = pd.read_csv(uploaded_file)
-    st.success("File uploaded successfully!")
 
     
-    st.subheader("📋 Dataset Preview")
-    st.dataframe(df.head())
+    cleaned_df = df.copy()
 
-    # Info
-    st.subheader("📊 Dataset Info")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.metric("Rows", df.shape[0])
-        st.metric("Columns", df.shape[1])
-
-    with col2:
-        st.metric("Missing Values", df.isnull().sum().sum())
-        st.metric("Duplicate Rows", df.duplicated().sum())
+    st.success("✅ File uploaded successfully!")
 
    
-    if "cleaned_df" not in st.session_state:
-        st.session_state.cleaned_df = None
+    st.markdown("---")
+    st.subheader("📈 Dataset Overview")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Rows", df.shape[0])
+    col2.metric("Columns", df.shape[1])
+    col3.metric("Missing Values", int(df.isnull().sum().sum()))
+    col4.metric("Duplicate Rows", int(df.duplicated().sum()))
 
    
-    st.subheader(" Clean Dataset")
+    st.markdown("---")
+    st.subheader("📄 Dataset Preview")
+
+    st.dataframe(df.head(10), use_container_width=True)
+
+       
+    st.markdown("---")
+    st.subheader("🔍 Missing Values")
+
+    missing = df.isnull().sum()
+    missing = missing[missing > 0]
+
+    if len(missing) > 0:
+        st.dataframe(missing)
+    else:
+        st.success("No missing values found.")
+
+    
+    st.markdown("---")
+    st.subheader("📑 Duplicate Rows")
+
+    duplicates = df.duplicated().sum()
+
+    if duplicates > 0:
+        st.warning(f"{duplicates} duplicate rows found.")
+    else:
+        st.success("No duplicate rows found.")
+
+   
+    st.markdown("---")
+    st.subheader("📋 Column Information")
+
+    info = pd.DataFrame({
+        "Data Type": df.dtypes,
+        "Missing Values": df.isnull().sum(),
+        "Unique Values": df.nunique()
+    })
+
+    st.dataframe(info, use_container_width=True)
+
+    
+    st.markdown("---")
+    st.subheader("📊 Statistical Summary")
+
+    st.dataframe(df.describe(include="all"), use_container_width=True)
+
+    
+    st.markdown("---")
+    st.subheader("🧹 Data Cleaning")
 
     if st.button("Clean Dataset"):
 
         cleaned_df = df.copy()
+
+        
         cleaned_df = cleaned_df.drop_duplicates()
-        cleaned_df = cleaned_df.dropna()
-
-        st.session_state.cleaned_df = cleaned_df
-
-        st.success("Dataset cleaned successfully!")
-
-   
-    if st.session_state.cleaned_df is not None:
-
-        cleaned_df = st.session_state.cleaned_df
-
-        st.subheader("📊 Final Business Insight")
-
-        insights = []
-
-      
-        insights.append(
-            f"The dataset contains {len(cleaned_df)} records and {cleaned_df.shape[1]} columns."
-        )
-
-        cols = [c.lower() for c in cleaned_df.columns]
-
-        is_sales = any(x in cols for x in ["sales", "revenue", "price", "quantity", "amount"])
-        is_hr = any(x in cols for x in ["salary", "department", "experience", "designation"])
-        is_time = any("date" in c for c in cols)
-
-       
-        if is_sales:
-
-            if "quantity" in cols and "price" in cols:
-                cleaned_df["Revenue"] = cleaned_df["Quantity"] * cleaned_df["Price"]
-                insights.append("Revenue is driven by quantity and price.")
-
-            product_col = next((c for c in cleaned_df.columns if "product" in c.lower() or "description" in c.lower()), None)
-
-            if product_col:
-                top_product = cleaned_df[product_col].value_counts().idxmax()
-                insights.append(f"Top product is '{top_product}' showing high demand.")
-
-      
-        if is_hr:
-
-            if "department" in cleaned_df.columns:
-                top_dept = cleaned_df["department"].value_counts().idxmax()
-                insights.append(f"{top_dept} department has highest employees.")
-
-    
-        if is_time:
-            insights.append("Data shows time-based variation and trends.")
-
-       
-        cat_cols = cleaned_df.select_dtypes(include="object").columns
-
-        if len(cat_cols) > 0:
-            col = cat_cols[0]
-            top_value = cleaned_df[col].value_counts().idxmax()
-            percent = (cleaned_df[col].value_counts().max() / len(cleaned_df)) * 100
-
-            insights.append(f"{top_value} dominates dataset (~{percent:.1f}%).")
-
-       
-        insights.append(
-            "Overall, dataset shows clear patterns useful for decision making."
-        )
 
         
-        st.write("Key Business Insights")
-
-        for i, point in enumerate(insights, 1):
-            st.write(f"{i}. {point}")
+        cleaned_df = cleaned_df.dropna(how="all")
 
         
-        csv = cleaned_df.to_csv(index=False).encode("utf-8")
+        cleaned_df = cleaned_df.dropna(axis=1, how="all")
 
-        st.download_button(
-            label="⬇ Download Cleaned CSV",
-            data=csv,
-            file_name="cleaned_dataset.csv",
-            mime="text/csv"
-        )
+        
+        text_cols = cleaned_df.select_dtypes(include="object").columns
+
+        for col in text_cols:
+            cleaned_df[col] = cleaned_df[col].astype(str).str.strip()
+
+        
+        for col in text_cols:
+            cleaned_df[col] = cleaned_df[col].str.title()
+
+        
+        for col in cleaned_df.columns:
+            if cleaned_df[col].dtype == "object":
+                try:
+                    cleaned_df[col] = pd.to_datetime(cleaned_df[col])
+                except:
+                    pass
+
+        df = cleaned_df
+
+        st.success("✅ Dataset cleaned successfully!")
+
+        st.subheader("Cleaned Dataset Preview")
+        st.dataframe(df, use_container_width=True)
+
+        
+        st.markdown("---")
+        st.subheader("📊 Statistical Summary")
+
+        st.dataframe(df.describe(include="all"), use_container_width=True)
+
+        
+        st.markdown("---")
+        st.subheader("📈 Business Insights")
+
+        # Total Records
+        st.success(f"📋 Total Records: {len(df):,}")
+
+        # Numeric Columns
+        numeric_cols = df.select_dtypes(include="number").columns
+
+        if len(numeric_cols) > 0:
+
+         
+            highest_col = df[numeric_cols].mean().idxmax()
+            highest_value = df[highest_col].mean()
+
+            st.success(
+             f"📊 Highest Average: {highest_col} ({highest_value:.2f})"
+            )
+
+            
+            lowest_col = df[numeric_cols].mean().idxmin()
+            lowest_value = df[lowest_col].mean()
+
+            st.success(
+            f"📉 Lowest Average: {lowest_col} ({lowest_value:.2f})"
+            )
+
+            
+            sales_columns = ["Sales", "Revenue", "Amount"]
+
+            for col in sales_columns:
+                if col in df.columns:
+                    st.success(f"💰 Total {col}: ₹{df[col].sum():,.2f}")
+                break
+
+            
+            if "Profit" in df.columns:
+                st.success(f"📈 Total Profit: ₹{df['Profit'].sum():,.2f}")
+
+           
+            quantity_columns = ["Quantity", "Qty"]
+
+            for col in quantity_columns:
+                if col in df.columns:
+                    st.success(f"📦 Total Quantity: {df[col].sum():,.0f}")
+                break
+
+           
+            order_columns = [
+                "Order ID",
+                "OrderID",
+                "InvoiceNo",
+                "Invoice No"
+            ]
+
+            for col in order_columns:
+                if col in df.columns:
+                    st.success(f"🛒 Total Orders: {df[col].nunique():,}")
+                    break
+
+           
+            customer_columns = [
+                "CustomerID",
+                "Customer ID",
+                "Customer Name",
+                "Customer"
+            ]
+
+            for col in customer_columns:
+                if col in df.columns:
+                    st.success(f"👥 Unique Customers: {df[col].nunique():,}")
+                break
+
+           
+            product_columns = [
+            "Product Name",
+            "Description",
+            "Product"
+            ]
+
+            for col in product_columns:
+                if col in df.columns:
+
+                    product = df[col].mode()[0]
+
+                    st.success(f"⭐ Most Purchased Product: {product}")
+
+                    break
+
+            
+            location_columns = [
+                "Country",
+                "Region",
+                "State",
+                "City"
+            ]
+
+            for col in location_columns:
+                if col in df.columns:
+
+                    location = df[col].mode()[0]
+
+                    st.success(f"🌍 Top {col}: {location}")
+
+                break
+
+           
+            if "Category" in df.columns:
+
+                category = df["Category"].mode()[0]
+
+                st.success(f"🏆 Most Common Category: {category}")
+
+            
+            date_columns = [
+                "Order Date",
+                "InvoiceDate",
+                "Date"
+            ]
+
+            for col in date_columns:
+                if col in df.columns:
+
+                    try:
+
+                        dates = pd.to_datetime(df[col])
+
+                        st.success(
+                            f"📅 Data Period: {dates.min().date()} to {dates.max().date()}"
+                        )
+
+                    except:
+                        pass
+
+                    break
+                    
+                    st.markdown("---")
+
+                    csv = df.to_csv(index=False)
+
+                    st.download_button(
+                    "⬇ Download Cleaned Dataset",
+                    data=csv,
+                    file_name="cleaned_dataset.csv",
+                    mime="text/csv"
+)
