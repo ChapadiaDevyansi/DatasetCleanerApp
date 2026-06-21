@@ -43,7 +43,7 @@ if uploaded_file is not None:
     st.markdown("---")
     st.subheader("📄 Dataset Preview")
 
-    st.dataframe(df.head(10), use_container_width=True)
+    st.dataframe(df, use_container_width=True)
 
        
     st.markdown("---")
